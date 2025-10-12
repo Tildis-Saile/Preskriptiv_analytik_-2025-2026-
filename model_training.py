@@ -32,6 +32,9 @@ _tmp.close()
 os.makedirs("models/DQN", exist_ok=True)
 os.makedirs("models/PPO", exist_ok=True)
 
+# TIMESTEPS = 500_000
+TIMESTEPS = 5_000
+
 # --- Method 1: DQN ---
 model_dqn = DQN(
     "CnnPolicy",
@@ -45,8 +48,8 @@ model_dqn = DQN(
     tensorboard_log="./carracing_tensorboard/"
 )
 
-TIMESTEPS = 500_000
-model_dqn.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False)
+
+model_dqn.learn(total_timesteps=TIMESTEPS)  # fresh run → omit reset_num_timesteps
 model_dqn.save(f"models/DQN/carracing_dqn_{TIMESTEPS}.zip")
 print("DQN training complete and model saved.")
 
@@ -63,8 +66,9 @@ model_ppo = PPO(
     gae_lambda=0.95,
     tensorboard_log="./carracing_tensorboard/"
 )
-# model_ppo.learn(total_timesteps=500_000)
-# model_ppo.save("models/PPO/carracing_ppo_500k.zip")
+model_ppo.learn(total_timesteps=TIMESTEPS)
+model_ppo.save(f"models/PPO/carracing_ppo_{TIMESTEPS}.zip")
+print("PPO training complete and model saved.")
 
 # Close AFTER all training is done
 vec_env.close()
