@@ -1,45 +1,59 @@
+import os
 import gymnasium as gym
-import cv2
+from gymnasium.wrappers import GrayscaleObservation
 from stable_baselines3 import PPO, DQN
-from stable_baselines3.common.vec_env import DummyVecEnv
+from stable_baselines3.common.monitor import Monitor
+from stable_baselines3.common.vec_env import DummyVecEnv, VecTransposeImage, VecFrameStack
 
-# Create the base environment with discrete actions
-env = gym.make("CarRacing-v3", render_mode="human", lap_complete_percent=0.95, domain_randomize=False, continuous=False)
-
-# 2. Apply Frame Stacking
-
-print("Observation space shape:", env.observation_space.shape)
-# Expected output: Observation space shape: (4, 96, 96)
+# --- 1) Make base env (discrete actions for DQN/PPO) ---
+def make_env():
+    env = gym.make(
+        "CarRacing-v3",
+        render_mode="rgb_array",   # faster for training; use "human" to watch
+        continuous=False
+    )
+    env = Monitor(env)
+    env = GrayscaleObservation(env, keep_dim=True)  # (96, 96, 1) HWC
+    return env
 
 # It's good practice to wrap the environment in a VecEnv
-vec_env = DummyVecEnv([lambda: env])
+vec_env = DummyVecEnv([make_env])
+
+# Convert HWC -> CHW and stack 4 frames at the VecEnv level
+vec_env = VecTransposeImage(vec_env)       # (1, 96, 96)
+vec_env = VecFrameStack(vec_env, 4)        # (4, 96, 96)
+
+# Quick sanity check (outside VecEnv)
+_tmp = make_env()
+print("Single-env observation space (no stack):", _tmp.observation_space)
+# Expect: Box(0, 255, (96, 96, 1), uint8)
+_tmp.close()
+
+os.makedirs("models/DQN", exist_ok=True)
+os.makedirs("models/PPO", exist_ok=True)
 
 # --- Method 1: DQN ---
-# 'CnnPolicy' tells the model to use a CNN to process the image observations.
 model_dqn = DQN(
-    'CnnPolicy',
+    "CnnPolicy",
     vec_env,
     verbose=1,
-    buffer_size=50000, # Size of the replay buffer
+    buffer_size=50_000,
     learning_rate=1e-4,
     batch_size=32,
-    learning_starts=1000, # Number of steps to collect before training starts
-    target_update_interval=1000,
+    learning_starts=1_000,
+    target_update_interval=1_000,
     tensorboard_log="./carracing_tensorboard/"
 )
 
-TIMESTEPS = 500000
+TIMESTEPS = 500_000
 model_dqn.learn(total_timesteps=TIMESTEPS, reset_num_timesteps=False)
-
-# 4. Save the model
 model_dqn.save(f"models/DQN/carracing_dqn_{TIMESTEPS}.zip")
-print("Training complete and model saved.")
-
-env.close()
+print("DQN training complete and model saved.")
 
 # --- Method 2: PPO ---
+# You can reuse the same vec_env; don't close it until you're totally done.
 model_ppo = PPO(
-    'CnnPolicy',
+    "CnnPolicy",
     vec_env,
     verbose=1,
     n_steps=1024,
@@ -49,4 +63,8 @@ model_ppo = PPO(
     gae_lambda=0.95,
     tensorboard_log="./carracing_tensorboard/"
 )
-# model_ppo.learn(total_timesteps=500000) # Train for 500k steps
+# model_ppo.learn(total_timesteps=500_000)
+# model_ppo.save("models/PPO/carracing_ppo_500k.zip")
+
+# Close AFTER all training is done
+vec_env.close()
