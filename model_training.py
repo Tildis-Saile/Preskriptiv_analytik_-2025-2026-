@@ -32,8 +32,8 @@ _tmp.close()
 os.makedirs("models/DQN", exist_ok=True)
 os.makedirs("models/PPO", exist_ok=True)
 
-# TIMESTEPS = 500_000
-TIMESTEPS = 5_000
+TIMESTEPS = 500_000
+# TIMESTEPS = 5_000
 
 # --- Method 1: DQN ---
 model_dqn = DQN(
@@ -49,8 +49,8 @@ model_dqn = DQN(
 )
 
 
-model_dqn.learn(total_timesteps=TIMESTEPS)  # fresh run → omit reset_num_timesteps
-model_dqn.save(f"models/DQN/carracing_dqn_{TIMESTEPS}.zip")
+# model_dqn.learn(total_timesteps=TIMESTEPS)  # fresh run → omit reset_num_timesteps
+# model_dqn.save(f"models/DQN/carracing_dqn_{TIMESTEPS}.zip")
 print("DQN training complete and model saved.")
 
 # --- Method 2: PPO ---
